@@ -77,15 +77,17 @@ public class MaintenanceController : ControllerBase
         {
             _logger.LogInformation("WorkshopRequest oprettet" + StatusCodes.Status200OK,    //status 200 er ok
             DateTime.UtcNow.ToLongTimeString());
-            channel.ExchangeDeclare(workshopRequest.ServiceType, ExchangeType.Topic);
+            //Exhange(topic_logs) bestemmer, hvilken type meddelelse der sendes til hvilken kø "Reparation" eller "Service"
+            channel.ExchangeDeclare(exchange: "topic_logs", ExchangeType.Topic);
            
 
             string message = JsonConvert.SerializeObject(workshopRequest);
             var body = Encoding.UTF8.GetBytes(message);
 
             // ServiceType datatype String skal være "Reparation" eller "Service" !!!
-            channel.BasicPublish(exchange: workshopRequest.ServiceType,
-                                 routingKey: "hello",
+            channel.BasicPublish(exchange: "topic_logs",
+            //Er selve køen den går over til der enten kan være "Reparation" eller "Service".
+                                 routingKey: workshopRequest.ServiceType,
                                  basicProperties: null,
                                  body: body);
 
