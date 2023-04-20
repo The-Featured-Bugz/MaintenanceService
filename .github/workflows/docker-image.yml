@@ -24,8 +24,8 @@ jobs:
       env:
         DOCKER_USER: ${{ secrets.DOCKER_USER }}
       run:
-        docker build . --file Dockerfile --tag ${DOCKER_USER}/MaintenanceService:latest-dev
+        docker build . --file Dockerfile --tag ${DOCKER_USER}/maintenance-service:latest-dev
     - name: Push Docker image to Docker Hub
       env:
         DOCKER_USER: ${{ secrets.DOCKER_USER }}
-      run: docker push ${DOCKER_USER}/MaintenanceService:latest-dev
+      run: docker push ${DOCKER_USER}/maintenance-service:latest-dev
