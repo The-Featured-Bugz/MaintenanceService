@@ -68,7 +68,7 @@ public class MaintenanceController : ControllerBase
         {
 
             // Læser data fra en CSV-fil med navnet på den påkrævede serviceType og returnerer en liste over WorkshopRequest-objekter.
-            List<WorkshopRequest> work = service.ReadCSV("C:\\Users\\jacob\\Music\\MicroProject\\PlanningService" + "\\" + serviceType + ".csv");
+            List<WorkshopRequest> work = service.ReadCSV(_csvLocation + serviceType + ".csv");
             DateTime today = DateTime.Today;
             //Tilføjer alle "work" som matcher med datoen idag ind i "todayWork".
             List<WorkshopRequest> todayWork = work.FindAll(x => x.CurrentDate.ToString("dd") == today.ToString("dd"));
