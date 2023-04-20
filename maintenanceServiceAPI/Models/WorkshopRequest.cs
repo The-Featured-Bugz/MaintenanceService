@@ -9,20 +9,21 @@ public class WorkshopRequest
     public string Execution { get; set; }
 
 
-    //Service(false) eller reparation(true)
+    //Service eller Repair
     public string ServiceType { get; set; }
 
 
     public string Customer { get; set; }
 
+    public DateTime CurrentDate {get; set;}
 
-
-    public WorkshopRequest(int iD, string execution, string serviceType, string customer)
+    public WorkshopRequest(int iD, string execution, string serviceType, string customer, DateTime currentDate)
     {
         this.ID = iD;
         this.Execution = execution;
         this.ServiceType = serviceType;
         this.Customer = customer;
+        this.CurrentDate = currentDate;
 
     }
 

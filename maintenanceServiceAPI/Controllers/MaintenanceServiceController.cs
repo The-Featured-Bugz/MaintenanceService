@@ -27,17 +27,17 @@ public class MaintenanceController : ControllerBase
     private IConnection connection;
     private IModel channel;
 
-    private string _planPath = string.Empty;
+    private string _csvLocation = string.Empty;
 
 
     public MaintenanceController(ILogger<MaintenanceController> logger, IConfiguration configuration)
     {
         _logger = logger;
-        _planPath = configuration["PlanPath"] ?? String.Empty;
+        _csvLocation = configuration["csvLocation"] ?? String.Empty;
 
         string connectionString = configuration["RabbitMQConnectionString"] ?? string.Empty;
 
-        _logger.LogInformation($"PlanPath is {_planPath}");
+        _logger.LogInformation($"csvLocation is {_csvLocation}");
         _logger.LogInformation($"connection string is {connectionString}");
 
         factory = new ConnectionFactory() { HostName = connectionString };
@@ -45,60 +45,74 @@ public class MaintenanceController : ControllerBase
         channel = connection.CreateModel();
 
         _logger.LogInformation("Maintenance started");
+
+        var hostName = System.Net.Dns.GetHostName();
+        var ips = System.Net.Dns.GetHostAddresses(hostName);
+        var _ipaddr = ips.First().MapToIPv4().ToString();
+        _logger.LogInformation(1, $"Maintenance responding from {_ipaddr}");
     }
 
+    // Angiver, at denne metode vil håndtere HTTP GET-forespørgsler på en bestemt URL.
+    [HttpGet("Get{serviceType}plan")]
 
+    // Angiver, at hvis anmodningen er vellykket, vil HTTP-statuskoden i svaret være 200 OK, og typen af ​​data, der returneres, vil være WorkshopRequest.
+    [ProducesResponseType(typeof(WorkshopRequest), StatusCodes.Status200OK)]
 
-    [HttpGet("GetRepairPlan")]
-
-    [ProducesResponseType(typeof(WorkshopRequest), StatusCodes.Status200OK)]        //med lidt hjælp fra model-klassen CSVreader
-                                                                                    //fordi controller-basen ikke kan læse i computerens filsystem
-    public IActionResult GetRepairPlanCSV()
+    // Definerer en metode, der vil håndtere GET-forespørgsler på denne URL, med en parameter kaldet "serviceType".
+    public IActionResult GetServiceTypePlanCSV(string serviceType)
     {
+        // Opretter en ny CSVreader-instans til at læse data fra CSV-filer.
         CSVreader service = new CSVreader();
+
         try
         {
-            List<WorkshopRequest> bookings = service.ReadCSV(_planPath);
-            return Ok(bookings);
-        }
 
+            // Læser data fra en CSV-fil med navnet på den påkrævede serviceType og returnerer en liste over WorkshopRequest-objekter.
+            List<WorkshopRequest> work = service.ReadCSV("C:\\Users\\jacob\\Music\\MicroProject\\PlanningService" + "\\" + serviceType + ".csv");
+            DateTime today = DateTime.Today;
+            //Tilføjer alle "work" som matcher med datoen idag ind i "todayWork".
+            List<WorkshopRequest> todayWork = work.FindAll(x => x.CurrentDate.ToString("dd") == today.ToString("dd"));
+
+            _logger.LogInformation($"Return todayWork.Count: {todayWork.Count}");
+            // Returnerer en HTTP 200 OK status og en liste over WorkshopRequest-objekter.
+            return Ok(todayWork);
+        }
         catch (Exception)
         {
+            _logger.LogInformation($" - It's gone daddy.");
+            // Hvis der opstår en fejl, returneres en HTTP-statuskode på 410, der angiver, at den anmodede ressource er permanent fjernet fra serveren.
             return StatusCode(410, $" - It's gone daddy.");
         }
     }
 
 
     [HttpPost("PostWorkshopRequest")]
-    //En post der tilføjer en Maintenance
+    // HTTP POST-metode, der tilføjer en Maintenance
     public IActionResult PostWorkshopRequest([FromBody] WorkshopRequest workshopRequest)
     {
         try
         {
-            _logger.LogInformation("WorkshopRequest oprettet" + StatusCodes.Status200OK,    //status 200 er ok
+            _logger.LogInformation("WorkshopRequest oprettet" + StatusCodes.Status200OK,    // Logger en information om, at WorkshopRequest er oprettet, med HTTP status 200 OK og tidspunktet.
             DateTime.UtcNow.ToLongTimeString());
-            //Exhange(topic_logs) bestemmer, hvilken type meddelelse der sendes til hvilken kø "Reparation" eller "Service"
+
+            // Exchange(topic_logs) bestemmer, hvilken type meddelelse der sendes til hvilken kø "Repair" eller "Service".
             channel.ExchangeDeclare(exchange: "topic_logs", ExchangeType.Topic);
-           
 
-            string message = JsonConvert.SerializeObject(workshopRequest);
-            var body = Encoding.UTF8.GetBytes(message);
+            string message = JsonConvert.SerializeObject(workshopRequest);    // Konverterer WorkshopRequest til en JSON-streng.
+            var body = Encoding.UTF8.GetBytes(message);    // Konverterer JSON-strengen til en byte-array.
 
-            // ServiceType datatype String skal være "Reparation" eller "Service" !!!
+            // ServiceType datatype String skal være "Repair" eller "Service" !!!
             channel.BasicPublish(exchange: "topic_logs",
-            //Er selve køen den går over til der enten kan være "Reparation" eller "Service".
+                                 // Sender beskeden til køen, der passer til ServiceType, som kan være "Repair" eller "Service".
                                  routingKey: workshopRequest.ServiceType,
                                  basicProperties: null,
                                  body: body);
 
-            _logger.LogInformation($"WorkshopRequest added - {message}");
-        
-        
-           
-            return Ok(message);
-        }
+            _logger.LogInformation($"WorkshopRequest added - {message}");    // Logger en information om, at WorkshopRequest er tilføjet med WorkshopRequest JSON-strengen.
 
-        catch (Exception)                                                        //fanger exceptions med en log og en DateTime
+            return Ok(message);    // Returnerer HTTP status 200 OK med WorkshopRequest JSON-strengen i responskroppen.
+        }
+        catch (Exception)    // Håndterer exceptions og logger dem med tidspunktet.
         {
             _logger.LogInformation("Fejl, WorkshopRequest ikke oprettet",
             DateTime.UtcNow.ToLongTimeString());
@@ -106,4 +120,5 @@ public class MaintenanceController : ControllerBase
             return null;
         }
     }
+
 }
